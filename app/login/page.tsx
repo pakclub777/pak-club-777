@@ -1,97 +1,161 @@
-'use client';
-import { useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
-import { useRouter } from 'next/navigation';
+"use client";
+import { useState } from "react";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 
-export default function AuthPage() {
+export default function LoginPage() {
   const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const supabase = createClientComponentClient();
   const router = useRouter();
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    setErrorMsg("");
 
-    if (isSignUp) {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-            phone: phone,
+    try {
+      if (isSignUp) {
+        // Sign Up Flow
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { full_name: fullName, phone: phone },
           },
-        },
-      });
-
-      if (error) {
-        setError(error.message);
-      } else {
-        alert('Pak Club 777 Account Ban Gaya! Ab Login Karein.');
+        });
+        if (error) throw error;
+        alert("Account Successfully Created! Ab Login Karein.");
         setIsSignUp(false);
-      }
-    } else {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        setError(error.message);
       } else {
-        router.push('/');
+        // Login Flow
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+        router.push("/"); // Direct Home Dashboard Par Bhejega
       }
+    } catch (err: any) {
+      setErrorMsg(err.message || "Something went wrong!");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
-    <div style={{ maxWidth: '400px', margin: '40px auto', padding: '25px', background: '#1a202c', color: '#fff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.5)' }}>
-      <h2 style={{ textAlign: 'center', color: '#f6ad55', fontSize: '28px', marginBottom: '20px' }}>
-        🎰 Pak Club 777
-      </h2>
-      <h4 style={{ textAlign: 'center', marginBottom: '20px' }}>
-        {isSignUp ? 'Naya Account Banayein' : 'Account Login Karein'}
-      </h4>
+    <div className="min-h-screen bg-[#0b0f17] text-white flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-sm bg-[#141c2b] border border-amber-500/30 rounded-2xl p-6 shadow-2xl">
+        {/* Branding */}
+        <div className="text-center mb-6">
+          <span className="text-4xl">👑</span>
+          <h1 className="text-2xl font-black text-amber-400 mt-1">PAK CLUB 777</h1>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {isSignUp ? "Create a New Account" : "Sign In to Play & Earn"}
+          </p>
+        </div>
 
-      {error && <p style={{ color: '#fc8181', background: '#742a2a', padding: '8px', borderRadius: '4px', fontSize: '14px' }}>{error}</p>}
-
-      <form onSubmit={handleAuth}>
-        {isSignUp && (
-          <>
-            <div style={{ marginBottom: '12px' }}>
-              <label style={{ fontSize: '14px' }}>Full Name:</label>
-              <input type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)} style={{ width: '100%', padding: '10px', marginTop: '5px', borderRadius: '6px', border: 'none', background: '#2d3748', color: '#fff' }} />
-            </div>
-            <div style={{ marginBottom: '12px' }}>
-              <label style={{ fontSize: '14px' }}>Phone Number (Easypaisa/JazzCash):</label>
-              <input type="text" required value={phone} onChange={(e) => setPhone(e.target.value)} style={{ width: '100%', padding: '10px', marginTop: '5px', borderRadius: '6px', border: 'none', background: '#2d3748', color: '#fff' }} />
-            </div>
-          </>
+        {errorMsg && (
+          <div className="bg-red-500/20 border border-red-500/50 text-red-300 text-xs p-2.5 rounded-xl mb-4 text-center">
+            {errorMsg}
+          </div>
         )}
-        <div style={{ marginBottom: '12px' }}>
-          <label style={{ fontSize: '14px' }}>Email Address:</label>
-          <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} style={{ width: '100%', padding: '10px', marginTop: '5px', borderRadius: '6px', border: 'none', background: '#2d3748', color: '#fff' }} />
-        </div>
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ fontSize: '14px' }}>Password:</label>
-          <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} style={{ width: '100%', padding: '10px', marginTop: '5px', borderRadius: '6px', border: 'none', background: '#2d3748', color: '#fff' }} />
+
+        {/* Form */}
+        <form onSubmit={handleAuth} className="flex flex-col gap-3 text-xs">
+          {isSignUp && (
+            <>
+              <div>
+                <label className="text-gray-400 mb-1 block">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Zain"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="w-full bg-[#0b0f17] border border-gray-700 rounded-xl p-3 text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-gray-400 mb-1 block">Phone Number (Easypaisa/JazzCash)</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="0311XXXXXXX"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full bg-[#0b0f17] border border-gray-700 rounded-xl p-3 text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
+            </>
+          )}
+
+          <div>
+            <label className="text-gray-400 mb-1 block">Email Address</label>
+            <input
+              type="email"
+              required
+              placeholder="user@gmail.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full bg-[#0b0f17] border border-gray-700 rounded-xl p-3 text-white focus:outline-none focus:border-amber-500"
+            />
+          </div>
+
+          <div>
+            <label className="text-gray-400 mb-1 block">Password</label>
+            <input
+              type="password"
+              required
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full bg-[#0b0f17] border border-gray-700 rounded-xl p-3 text-white focus:outline-none focus:border-amber-500"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-black font-extrabold py-3 rounded-xl uppercase tracking-wider mt-2 shadow-lg disabled:opacity-50"
+          >
+            {loading ? "Processing..." : isSignUp ? "Register Now" : "Sign In"}
+          </button>
+        </form>
+
+        {/* Toggle Sign In / Sign Up */}
+        <div className="mt-5 text-center text-xs text-gray-400">
+          {isSignUp ? (
+            <p>
+              Already have an account?{" "}
+              <button onClick={() => setIsSignUp(false)} className="text-amber-400 font-bold underline">
+                Sign In
+              </button>
+            </p>
+          ) : (
+            <p>
+              Don't have an account?{" "}
+              <button onClick={() => setIsSignUp(true)} className="text-amber-400 font-bold underline">
+                Register
+              </button>
+            </p>
+          )}
         </div>
 
-        <button type="submit" disabled={loading} style={{ width: '100%', padding: '12px', background: '#d69e2e', color: '#000', fontWeight: 'bold', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '16px' }}>
-          {loading ? 'Processing...' : isSignUp ? 'Register Now' : 'Login'}
-        </button>
-      </form>
-
-      <button onClick={() => setIsSignUp(!isSignUp)} style={{ marginTop: '15px', background: 'none', border: 'none', color: '#63b3ed', cursor: 'pointer', width: '100%', textAlign: 'center' }}>
-        {isSignUp ? 'Pehle se account hai? Login karein' : "Account nahi hai? Sign Up karein"}
-      </button>
+        <div className="mt-4 text-center">
+          <Link href="/" className="text-[11px] text-gray-500 hover:text-gray-300">
+            ← Back to Dashboard
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }
