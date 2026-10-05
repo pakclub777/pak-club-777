@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "./context/Authcontext";
+import LiveTicker from "./components/LiveTicker";
 
 // Casino Games List
 const GAMES = [
@@ -35,22 +36,6 @@ export default function Home() {
 
     checkLoginStatus();
   }, [user]);
-
-  // Live Wins Ticker
-  const [tickerWin, setTickerWin] = useState({ phone: "0309***21", amount: "25,400", game: "Plinko" });
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const phones = ["0301", "0345", "0312", "0333", "0321", "0300", "0311"];
-      const games = ["Aviator", "Mines", "Plinko", "777 Slots", "Dragon vs Tiger"];
-      const randomPhone = `${phones[Math.floor(Math.random() * phones.length)]}***${Math.floor(10 + Math.random() * 90)}`;
-      const randomAmount = (Math.floor(Math.random() * 800) + 100) * 100;
-      const randomGame = games[Math.floor(Math.random() * games.length)];
-      
-      setTickerWin({ phone: randomPhone, amount: randomAmount.toLocaleString(), game: randomGame });
-    }, 2500);
-    return () => clearInterval(interval);
-  }, []);
 
   const handleGameClick = (route: string) => {
     const userFlag = localStorage.getItem("user_logged_in") === "true" || !!localStorage.getItem("sb-session") || !!user;
@@ -125,18 +110,8 @@ export default function Home() {
       </div>
 
       {/* 3. LIVE WINNING TICKER */}
-      <div className="px-3 mb-3">
-        <div className="bg-[#141c2b] border border-amber-500/30 rounded-xl p-2.5 flex items-center justify-between text-[11px]">
-          <div className="flex items-center gap-2">
-            <span className="animate-pulse text-amber-400">🔊</span>
-            <span className="text-gray-300 font-medium">{tickerWin.phone}</span>
-            <span className="text-amber-400 font-bold">Won</span>
-            <span className="text-green-400 font-extrabold">{tickerWin.amount} PKR</span>
-          </div>
-          <span className="bg-amber-500/20 text-amber-300 text-[9px] px-2 py-0.5 rounded-md font-semibold">
-            {tickerWin.game}
-          </span>
-        </div>
+      <div className="px-3">
+        <LiveTicker />
       </div>
 
       {/* 4. CATEGORIES TABS */}
@@ -203,26 +178,6 @@ export default function Home() {
           </div>
         </div>
       )}
-
-      {/* 7. BOTTOM NAVIGATION BAR */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#0f1521] border-t border-gray-800 px-2 py-2 flex justify-around text-[10px] text-gray-400">
-        <button onClick={() => window.location.href = "/"} className="flex flex-col items-center text-amber-400 font-bold">
-          <span className="text-base">🏠</span>
-          <span>Home</span>
-        </button>
-        <button onClick={() => handleActionClick("/withdraw")} className="flex flex-col items-center hover:text-white">
-          <span className="text-base">💳</span>
-          <span>Withdraw</span>
-        </button>
-        <button onClick={() => handleActionClick("/invite")} className="flex flex-col items-center hover:text-white">
-          <span className="text-base">👨‍👩👧‍👦</span>
-          <span>Invite</span>
-        </button>
-        <button onClick={() => handleActionClick("/profile")} className="flex flex-col items-center hover:text-white">
-          <span className="text-base">👤</span>
-          <span>Profile</span>
-        </button>
-      </nav>
     </div>
   );
 }
