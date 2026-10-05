@@ -1,141 +1,298 @@
 "use client";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useAuth } from "@/context/Authcontext";
 
 export default function CrashGame() {
-  const [multiplier, setMultiplier] = useState(1.00);
-  const [isFlying, setIsFlying] = useState(true);
-  const [betAmount, setBetAmount] = useState(100);
-  const [hasBet, setHasBet] = useState(false);
-  const [cashedOut, setCashedOut] = useState(false);
-  const [userBalance, setUserBalance] = useState(1000);
+  const { balance, updateBalance } = useAuth(); // Global Supabase Auth & Real-time Balance
+  const [multiplier, setMultiplier] = useState<number>(1.0);
+  const [gameState, setGameState] = useState<"waiting" | "running" | "crashed">("waiting");
+  const [countdown, setCountdown] = useState<number>(5);
+  const [history, setHistory] = useState<string[]>(["5.30x", "2.90x", "2.22x", "6.60x", "2.36x", "4.05x"]);
+  
+  // Bet Panel 1 State
+  const [bet1, setBet1] = useState<number>(10);
+  const [hasBet1, setHasBet1] = useState<boolean>(false);
+  const [cashedOut1, setCashedOut1] = useState<boolean>(false);
+  const [win1, setWin1] = useState<number>(0);
 
-  // Auto-Simulation Bets List (Z666/7999 Style)
-  const [liveBets, setLiveBets] = useState([
-    { user: "0301***44", bet: "500 PKR", cashed: "1.85x", win: "925 PKR" },
-    { user: "0345***12", bet: "1000 PKR", cashed: "2.40x", win: "2400 PKR" },
-    { user: "0312***89", bet: "200 PKR", cashed: "In Game", win: "-" },
-    { user: "0333***01", bet: "2000 PKR", cashed: "1.30x", win: "2600 PKR" },
-  ]);
+  // Bet Panel 2 State
+  const [bet2, setBet2] = useState<number>(10);
+  const [hasBet2, setHasBet2] = useState<boolean>(false);
+  const [cashedOut2, setCashedOut2] = useState<boolean>(false);
+  const [win2, setWin2] = useState<number>(0);
 
-  // Rocket Flying Animation Logic
   useEffect(() => {
-    if (!isFlying) return;
-    const interval = setInterval(() => {
-      setMultiplier((prev) => {
-        const crashPoint = 3.80; // Rocket crash limit
-        if (prev >= crashPoint) {
-          setIsFlying(false);
-          setHasBet(false);
-          setCashedOut(false);
-          setTimeout(() => {
-            setMultiplier(1.00);
-            setIsFlying(true);
-          }, 3500); // 3.5s Wait for next round
-          return 1.00;
-        }
-        return parseFloat((prev + 0.06).toFixed(2));
-      });
-    }, 100);
+    let timer: ReturnType<typeof setTimeout>;
+    if (gameState === "waiting") {
+      if (countdown > 0) {
+        timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      } else {
+        setGameState("running");
+        setMultiplier(1.0);
+        setCashedOut1(false);
+        setCashedOut2(false);
+      }
+    } else if (gameState === "running") {
+      const crashPoint = (Math.random() * 8 + 1.1).toFixed(2);
+      const interval = setInterval(() => {
+        setMultiplier((prev) => {
+          const next = parseFloat((prev + 0.05).toFixed(2));
+          if (next >= parseFloat(crashPoint)) {
+            clearInterval(interval);
+            setGameState("crashed");
+            setHistory((h) => [`${crashPoint}x`, ...h.slice(0, 5)]);
+            setTimeout(() => {
+              setGameState("waiting");
+              setCountdown(5);
+              setHasBet1(false);
+              setHasBet2(false);
+            }, 2500);
+            return parseFloat(crashPoint);
+          }
+          return next;
+        });
+      }, 100);
+      return () => clearInterval(interval);
+    }
+    return () => clearTimeout(timer);
+  }, [gameState, countdown]);
 
-    return () => clearInterval(interval);
-  }, [isFlying]);
-
-  const handlePlaceBet = () => {
-    if (userBalance >= betAmount && isFlying && !hasBet) {
-      setUserBalance((prev) => prev - betAmount);
-      setHasBet(true);
-      setCashedOut(false);
+  // Bet 1 Logic
+  const handlePlaceBet1 = async () => {
+    if (balance < bet1) {
+      alert("Aapka balance kam hai! Khelne ke liye pehle deposit karein.");
+      return;
+    }
+    const success = await updateBalance(-bet1);
+    if (success) {
+      setHasBet1(true);
     }
   };
 
-  const handleCashout = () => {
-    if (hasBet && !cashedOut && isFlying) {
-      const winAmount = Math.floor(betAmount * multiplier);
-      setUserBalance((prev) => prev + winAmount);
-      setCashedOut(true);
-      setHasBet(false);
+  const handleCashOut1 = async () => {
+    if (hasBet1 && gameState === "running" && !cashedOut1) {
+      const wonVal = Math.floor(bet1 * multiplier);
+      setCashedOut1(true);
+      setWin1(wonVal);
+      await updateBalance(wonVal);
+    }
+  };
+
+  // Bet 2 Logic
+  const handlePlaceBet2 = async () => {
+    if (balance < bet2) {
+      alert("Aapka balance kam hai! Khelne ke liye pehle deposit karein.");
+      return;
+    }
+    const success = await updateBalance(-bet2);
+    if (success) {
+      setHasBet2(true);
+    }
+  };
+
+  const handleCashOut2 = async () => {
+    if (hasBet2 && gameState === "running" && !cashedOut2) {
+      const wonVal = Math.floor(bet2 * multiplier);
+      setCashedOut2(true);
+      setWin2(wonVal);
+      await updateBalance(wonVal);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0b0f17] text-white flex flex-col justify-between p-3 max-w-md mx-auto font-sans">
-      {/* Top Header */}
-      <div className="flex justify-between items-center bg-[#141c2b] p-3 rounded-2xl border border-gray-800">
-        <Link href="/" className="text-amber-400 font-extrabold text-sm flex items-center gap-1">
-          ← Back
-        </Link>
-        <span className="font-black text-amber-400 tracking-wider">PAK CLUB AVIATOR</span>
-        <div className="bg-[#1c283a] px-3 py-1 rounded-xl text-xs text-green-400 font-bold border border-green-500/30">
-          PKR {userBalance.toLocaleString()}
-        </div>
-      </div>
-
-      {/* Game Screen Canvas */}
-      <div className="my-3 bg-gradient-to-b from-[#141c2b] to-[#0d131c] h-64 rounded-2xl border border-amber-500/30 flex flex-col items-center justify-center relative overflow-hidden shadow-2xl">
-        <div className="absolute top-3 left-3 text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-md font-bold">
-          {isFlying ? "🚀 ROCKET FLYING" : "💥 CRASHED"}
-        </div>
-
-        <h1 className={`text-6xl font-black ${isFlying ? "text-amber-400" : "text-red-500"} drop-shadow-lg`}>
-          {isFlying ? `${multiplier.toFixed(2)}x` : "CRASHED"}
-        </h1>
-
-        <p className="text-xs text-gray-400 mt-2 font-medium">
-          {isFlying ? "Cash out before rocket crashes!" : "Waiting for next round..."}
-        </p>
-      </div>
-
-      {/* Betting Panel */}
-      <div className="bg-[#141c2b] p-4 rounded-2xl border border-gray-800 flex flex-col gap-3">
-        <div className="flex justify-between items-center text-xs text-gray-400">
-          <span>Bet Amount (PKR)</span>
-          <div className="flex gap-2">
-            {[100, 500, 1000].map((amt) => (
-              <button
-                key={amt}
-                onClick={() => setBetAmount(amt)}
-                className="bg-[#1c283a] hover:bg-amber-500 hover:text-black text-amber-400 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-amber-500/20"
-              >
-                {amt}
-              </button>
-            ))}
+    <div className="h-[100dvh] max-h-[100dvh] bg-[#0c0f17] text-white p-2.5 max-w-md mx-auto flex flex-col justify-between overflow-hidden select-none font-sans">
+      
+      {/* 1. Header Bar */}
+      <div className="flex justify-between items-center py-1">
+        <div className="flex items-center gap-2">
+          <Link href="/" className="text-gray-400 hover:text-white text-base">
+            ☰
+          </Link>
+          <div className="flex items-center gap-1">
+            <span className="text-amber-500 text-lg">👑</span>
+            <span className="font-black text-sm tracking-wide text-white">
+              Z666 <span className="text-[10px] text-gray-400 font-normal block -mt-1">- CASINO -</span>
+            </span>
           </div>
         </div>
+        <div className="flex items-center gap-1.5">
+          <div className="bg-[#182030] border border-gray-800 rounded-full px-3 py-1 flex items-center gap-1.5">
+            <span className="text-xs font-bold text-gray-200">
+              PKR {balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+            <span
+              className={`w-2.5 h-2.5 rounded-full inline-block ${
+                balance > 0 ? "bg-emerald-500" : "bg-red-500"
+              }`}
+            ></span>
+          </div>
 
-        {hasBet && !cashedOut ? (
-          <button
-            onClick={handleCashout}
-            className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-black font-black py-3.5 rounded-xl text-sm uppercase shadow-lg animate-bounce"
+          <Link
+            href="/deposit"
+            className="bg-amber-500 text-black text-[10px] font-black px-2.5 py-1 rounded-full hover:bg-amber-400 transition-all"
           >
-            CASH OUT (PKR {Math.floor(betAmount * multiplier)})
-          </button>
-        ) : (
-          <button
-            onClick={handlePlaceBet}
-            disabled={!isFlying || hasBet}
-            className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-black font-black py-3.5 rounded-xl text-sm uppercase shadow-lg disabled:opacity-50"
-          >
-            BET (PKR {betAmount})
-          </button>
+            + Deposit
+          </Link>
+        </div>
+      </div>
+
+      {/* 2. History Pills */}
+      <div className="flex gap-1 overflow-x-auto no-scrollbar py-0.5">
+        {history.map((h, i) => (
+          <span key={i} className="bg-[#241342] text-purple-300 border border-purple-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap">
+            {h}
+          </span>
+        ))}
+      </div>
+
+      {/* 3. Game Screen Area */}
+      <div className="relative h-40 bg-radial from-[#221626] to-[#0a0c12] rounded-2xl border border-gray-800/80 flex flex-col items-center justify-center overflow-hidden my-1 shadow-inner">
+        {gameState === "waiting" && (
+          <div className="text-center flex flex-col items-center">
+            <span className="text-red-500 text-2xl animate-pulse mb-1">🚁</span>
+            <p className="text-[11px] font-black text-gray-200 tracking-wider uppercase">WAITING FOR NEXT ROUND</p>
+            <div className="w-48 bg-gray-800 h-1.5 rounded-full mt-2 overflow-hidden">
+              <div 
+                className="bg-red-600 h-full transition-all duration-1000 ease-linear" 
+                style={{ width: `${(countdown / 5) * 100}%` }}
+              ></div>
+            </div>
+          </div>
+        )}
+
+        {gameState === "running" && (
+          <div className="text-center z-10">
+            <span className="text-4xl font-black text-white tracking-tight drop-shadow-md">{multiplier.toFixed(2)}x</span>
+            <p className="text-[11px] text-emerald-400 mt-1 font-bold flex items-center justify-center gap-1">
+              🚀 Flying High...
+            </p>
+          </div>
+        )}
+
+        {gameState === "crashed" && (
+          <div className="text-center z-10">
+            <span className="text-2xl font-black text-red-500 tracking-wide">FLEW AWAY!</span>
+            <p className="text-sm font-bold text-gray-300 mt-0.5">{multiplier.toFixed(2)}x</p>
+          </div>
         )}
       </div>
 
-      {/* Live Bets Ticker List */}
-      <div className="mt-3 bg-[#141c2b] p-3 rounded-2xl border border-gray-800">
-        <h3 className="text-[11px] font-extrabold text-amber-400 mb-2 tracking-wider uppercase">
-          🔥 Live Player Bets
-        </h3>
-        <div className="flex flex-col gap-1.5 text-[11px]">
-          {liveBets.map((b, i) => (
-            <div key={i} className="flex justify-between items-center bg-[#0d131c] px-3 py-1.5 rounded-lg border border-gray-800/50">
-              <span className="text-gray-300">{b.user}</span>
-              <span className="text-amber-400 font-bold">{b.bet}</span>
-              <span className="text-green-400 font-bold">{b.cashed}</span>
+      {/* 4. Bet Controls Container */}
+      <div className="flex flex-col gap-2">
+        
+        {/* PANEL 1 */}
+        <div className="bg-[#141a26] border border-gray-800/80 p-2 rounded-2xl">
+          <div className="flex justify-center gap-4 text-[11px] text-gray-400 font-bold mb-1.5">
+            <span className="text-white border-b-2 border-amber-500 pb-0.5">Bet</span>
+            <span>Auto</span>
+          </div>
+
+          <div className="grid grid-cols-12 gap-2 items-center">
+            <div className="col-span-6 flex flex-col gap-1.5">
+              <div className="bg-[#0b0e14] border border-gray-800 rounded-lg px-2 py-1 flex justify-between items-center">
+                <span className="text-xs font-bold text-white">{bet1.toFixed(2)}</span>
+                <div className="flex gap-1 text-gray-400">
+                  <button onClick={() => setBet1(Math.max(10, bet1 - 10))} className="w-5 h-5 bg-gray-800/80 rounded flex items-center justify-center text-xs font-bold active:scale-95">-</button>
+                  <button onClick={() => setBet1(bet1 + 10)} className="w-5 h-5 bg-gray-800/80 rounded flex items-center justify-center text-xs font-bold active:scale-95">+</button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-1">
+                {[100, 200, 500, 1000].map((amt) => (
+                  <button key={amt} onClick={() => setBet1(amt)} className="bg-[#0b0e14] border border-gray-800/80 text-[9px] text-gray-300 py-0.5 rounded font-bold hover:border-amber-500/50">
+                    {amt} PKR
+                  </button>
+                ))}
+              </div>
             </div>
-          ))}
+
+            <div className="col-span-6 h-full flex items-stretch">
+              {!hasBet1 ? (
+                <button
+                  disabled={gameState === "crashed"}
+                  onClick={handlePlaceBet1}
+                  className="w-full bg-emerald-500 hover:bg-emerald-600 font-black text-black text-sm rounded-xl uppercase tracking-wider shadow-lg active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center min-h-[64px]"
+                >
+                  BET
+                </button>
+              ) : cashedOut1 ? (
+                <div className="w-full bg-emerald-950/60 border border-emerald-500 text-emerald-400 font-bold p-1 rounded-xl text-center text-[10px] flex items-center justify-center">
+                  Cashed Out: PKR {win1}
+                </div>
+              ) : (
+                <button
+                  onClick={handleCashOut1}
+                  disabled={gameState !== "running"}
+                  className="w-full bg-amber-500 hover:bg-amber-600 font-black text-black text-xs rounded-xl uppercase tracking-wider shadow-lg active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center min-h-[64px]"
+                >
+                  CASH OUT ({Math.floor(bet1 * multiplier)})
+                </button>
+              )}
+            </div>
+          </div>
         </div>
+
+        {/* PANEL 2 */}
+        <div className="bg-[#141a26] border border-gray-800/80 p-2 rounded-2xl relative">
+          <button className="absolute top-1.5 right-2 text-gray-500 text-xs">⊖</button>
+          
+          <div className="flex justify-center gap-4 text-[11px] text-gray-400 font-bold mb-1.5">
+            <span className="text-white border-b-2 border-amber-500 pb-0.5">Bet</span>
+            <span>Auto</span>
+          </div>
+
+          <div className="grid grid-cols-12 gap-2 items-center">
+            <div className="col-span-6 flex flex-col gap-1.5">
+              <div className="bg-[#0b0e14] border border-gray-800 rounded-lg px-2 py-1 flex justify-between items-center">
+                <span className="text-xs font-bold text-white">{bet2.toFixed(2)}</span>
+                <div className="flex gap-1 text-gray-400">
+                  <button onClick={() => setBet2(Math.max(10, bet2 - 10))} className="w-5 h-5 bg-gray-800/80 rounded flex items-center justify-center text-xs font-bold active:scale-95">-</button>
+                  <button onClick={() => setBet2(bet2 + 10)} className="w-5 h-5 bg-gray-800/80 rounded flex items-center justify-center text-xs font-bold active:scale-95">+</button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-1">
+                {[100, 200, 500, 1000].map((amt) => (
+                  <button key={amt} onClick={() => setBet2(amt)} className="bg-[#0b0e14] border border-gray-800/80 text-[9px] text-gray-300 py-0.5 rounded font-bold hover:border-amber-500/50">
+                    {amt} PKR
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="col-span-6 h-full flex items-stretch">
+              {!hasBet2 ? (
+                <button
+                  disabled={gameState === "crashed"}
+                  onClick={handlePlaceBet2}
+                  className="w-full bg-emerald-500 hover:bg-emerald-600 font-black text-black text-sm rounded-xl uppercase tracking-wider shadow-lg active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center min-h-[64px]"
+                >
+                  BET
+                </button>
+              ) : cashedOut2 ? (
+                <div className="w-full bg-emerald-950/60 border border-emerald-500 text-emerald-400 font-bold p-1 rounded-xl text-center text-[10px] flex items-center justify-center">
+                  Cashed Out: PKR {win2}
+                </div>
+              ) : (
+                <button
+                  onClick={handleCashOut2}
+                  disabled={gameState !== "running"}
+                  className="w-full bg-amber-500 hover:bg-amber-600 font-black text-black text-xs rounded-xl uppercase tracking-wider shadow-lg active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center min-h-[64px]"
+                >
+                  CASH OUT ({Math.floor(bet2 * multiplier)})
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
       </div>
+
+      {/* 5. Bottom Tabs */}
+      <div className="flex justify-center gap-6 text-xs text-gray-400 font-bold pt-1 pb-0.5 border-t border-gray-800/40">
+        <button className="hover:text-white">All Bets</button>
+        <button className="hover:text-white">My Bets</button>
+      </div>
+
     </div>
   );
 }

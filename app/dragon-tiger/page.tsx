@@ -1,86 +1,47 @@
-'use client';
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
-import { useRouter } from 'next/navigation';
-
-const CARDS = [
-  { name: 'A', value: 1 }, { name: '2', value: 2 }, { name: '3', value: 3 },
-  { name: '4', value: 4 }, { name: '5', value: 5 }, { name: '6', value: 6 },
-  { name: '7', value: 7 }, { name: '8', value: 8 }, { name: '9', value: 9 },
-  { name: '10', value: 10 }, { name: 'J', value: 11 }, { name: 'Q', value: 12 }, { name: 'K', value: 13 }
-];
+"use client";
+import React, { useState } from "react";
+import Link from "next/link";
+import { useAuth } from "@/context/Authcontext";
 
 export default function DragonTigerGame() {
-  const router = useRouter();
-  const [balance, setBalance] = useState<number>(0);
-  const [userId, setUserId] = useState<string>('');
-  const [betAmount, setBetAmount] = useState<number>(50);
-  const [selectedSide, setSelectedSide] = useState<'dragon' | 'tiger' | 'tie' | null>(null);
-  
-  const [dragonCard, setDragonCard] = useState<any>(null);
-  const [tigerCard, setTigerCard] = useState<any>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [resultMessage, setResultMessage] = useState('');
+  const { balance, updateBalance } = useAuth(); // Global Supabase Auth & Real-time Balance
+  const [betAmount, setBetAmount] = useState<number>(10);
+  const [selectedSide, setSelectedSide] = useState<"dragon" | "tiger" | "tie" | null>(null);
+  const [result, setResult] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [history, setHistory] = useState<string[]>(["D", "T", "D", "D", "T", "T"]);
 
-  useEffect(() => {
-    fetchUserBalance();
-  }, []);
-
-  const fetchUserBalance = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      router.push('/login');
-      return;
-    }
-    setUserId(user.id);
-    const { data: profile } = await supabase.from('profiles').select('balance').eq('id', user.id).single();
-    if (profile) setBalance(Number(profile.balance || 0));
-  };
-
-  const startGame = async () => {
+  const handleStartBet = async () => {
     if (!selectedSide) {
-      alert('Pehle Dragon, Tiger ya Tie select karein!');
+      alert("Pehle Dragon, Tie, ya Tiger select karein!");
       return;
     }
+
     if (balance < betAmount) {
-      alert('Aapke paas kafi balance nahi hai!');
+      alert("Aapka balance kam hai! Khelne ke liye pehle deposit karein.");
       return;
     }
+
+    // 1. Bet Lagate Waqt Database se Balance Deduct Karein
+    const success = await updateBalance(-betAmount);
+    if (!success) return;
 
     setIsPlaying(true);
-    setResultMessage('');
-    setDragonCard(null);
-    setTigerCard(null);
+    setResult(null);
 
-    // Balance deduct karein
-    const newBalAfterBet = balance - betAmount;
-    setBalance(newBalAfterBet);
-    await supabase.from('profiles').update({ balance: newBalAfterBet }).eq('id', userId);
-
-    // Card Draw Animation Simulation
+    // Game Shuffle Simulation
     setTimeout(async () => {
-      const dCard = CARDS[Math.floor(Math.random() * CARDS.length)];
-      const tCard = CARDS[Math.floor(Math.random() * CARDS.length)];
+      const outcomes = ["dragon", "tiger", "tie"];
+      const winSide = outcomes[Math.floor(Math.random() * outcomes.length)] as "dragon" | "tiger" | "tie";
+      
+      setResult(winSide.toUpperCase());
+      setHistory((h) => [winSide[0].toUpperCase(), ...h.slice(0, 5)]);
 
-      setDragonCard(dCard);
-      setTigerCard(tCard);
-
-      let winner = '';
-      if (dCard.value > tCard.value) winner = 'dragon';
-      else if (tCard.value > dCard.value) winner = 'tiger';
-      else winner = 'tie';
-
-      let winAmount = 0;
-      if (selectedSide === winner) {
-        if (winner === 'tie') winAmount = betAmount * 9;
-        else winAmount = betAmount * 2;
-
-        const updatedBal = newBalAfterBet + winAmount;
-        setBalance(updatedBal);
-        await supabase.from('profiles').update({ balance: updatedBal }).eq('id', userId);
-        setResultMessage(`🎉 Aap Jeet Gaye! PKR ${winAmount} add ho gaye.`);
-      } else {
-        setResultMessage(`❌ Aap Haar Gaye! Winner: ${winner.toUpperCase()}`);
+      // 2. Win Hone Par Multiplier Ke Sath Database Balance Add Karein
+      if (selectedSide === winSide) {
+        const multiplier = selectedSide === "tie" ? 8 : 2;
+        const winVal = betAmount * multiplier;
+        await updateBalance(winVal); // Database me winning amount add karein
       }
 
       setIsPlaying(false);
@@ -88,81 +49,152 @@ export default function DragonTigerGame() {
   };
 
   return (
-    <div style={{ maxWidth: '500px', margin: '20px auto', padding: '20px', background: '#0f172a', color: '#fff', borderRadius: '12px', textAlign: 'center' }}>
-      <button onClick={() => router.push('/')} style={{ float: 'left', background: '#334155', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer' }}>
-        ← Dashboard
-      </button>
-      <div style={{ clear: 'both' }}></div>
-
-      <h2 style={{ color: '#f59e0b', marginTop: '10px' }}>🐉 Dragon VS Tiger 🐅</h2>
-      <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#10b981' }}>Wallet Balance: PKR {balance.toFixed(2)}</p>
-
-      {/* Arena Display */}
-      <div style={{ display: 'flex', justifyContent: 'space-around', margin: '30px 0', background: '#1e293b', padding: '20px', borderRadius: '10px' }}>
-        {/* Dragon Side */}
-        <div style={{ textAlign: 'center' }}>
-          <h3 style={{ color: '#ef4444' }}>DRAGON</h3>
-          <div style={{ width: '80px', height: '110px', background: '#fff', color: '#000', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', fontWeight: 'bold', margin: '10px auto' }}>
-            {dragonCard ? dragonCard.name : '?'}
-          </div>
+    <div className="h-[100dvh] max-h-[100dvh] bg-[#0c0f17] text-white p-2.5 max-w-md mx-auto flex flex-col justify-between overflow-hidden select-none font-sans">
+      {/* Header */}
+      <div className="flex justify-between items-center py-1">
+        <div className="flex items-center gap-2">
+          <Link href="/" className="text-gray-400 text-base">☰</Link>
+          <span className="font-black text-sm tracking-wide text-white">
+            Z666 <span className="text-[10px] text-gray-400 font-normal block -mt-1">- DRAGON TIGER -</span>
+          </span>
         </div>
 
-        <div style={{ alignSelf: 'center', fontSize: '20px', fontWeight: 'bold', color: '#94a3b8' }}>VS</div>
-
-        {/* Tiger Side */}
-        <div style={{ textAlign: 'center' }}>
-          <h3 style={{ color: '#38bdf8' }}>TIGER</h3>
-          <div style={{ width: '80px', height: '110px', background: '#fff', color: '#000', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', fontWeight: 'bold', margin: '10px auto' }}>
-            {tigerCard ? tigerCard.name : '?'}
+        <div className="flex items-center gap-1.5">
+          <div className="bg-[#182030] border border-gray-800 rounded-full px-3 py-1 flex items-center gap-1.5">
+            <span className="text-xs font-bold text-gray-200">
+              PKR {balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+            <span
+              className={`w-2.5 h-2.5 rounded-full inline-block ${
+                balance > 0 ? "bg-emerald-500" : "bg-red-500"
+              }`}
+            ></span>
           </div>
+
+          <Link
+            href="/deposit"
+            className="bg-amber-500 text-black text-[10px] font-black px-2.5 py-1 rounded-full hover:bg-amber-400 transition-all"
+          >
+            + Deposit
+          </Link>
         </div>
       </div>
 
-      {resultMessage && (
-        <p style={{ padding: '12px', background: '#334155', borderRadius: '8px', fontWeight: 'bold', fontSize: '16px' }}>
-          {resultMessage}
-        </p>
-      )}
-
-      {/* Bet Selection */}
-      <p style={{ marginBottom: '8px', fontSize: '14px', color: '#94a3b8' }}>Kisse Par Bet Lagani Hai?</p>
-      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginBottom: '20px' }}>
-        <button 
-          onClick={() => setSelectedSide('dragon')} 
-          style={{ flex: 1, padding: '12px', background: selectedSide === 'dragon' ? '#ef4444' : '#1e293b', color: '#fff', border: '2px solid #ef4444', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-          Dragon (2x)
-        </button>
-        <button 
-          onClick={() => setSelectedSide('tie')} 
-          style={{ padding: '12px 18px', background: selectedSide === 'tie' ? '#10b981' : '#1e293b', color: '#fff', border: '2px solid #10b981', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-          Tie (9x)
-        </button>
-        <button 
-          onClick={() => setSelectedSide('tiger')} 
-          style={{ flex: 1, padding: '12px', background: selectedSide === 'tiger' ? '#38bdf8' : '#1e293b', color: '#fff', border: '2px solid #38bdf8', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-          Tiger (2x)
-        </button>
-      </div>
-
-      {/* Amount Selection */}
-      <div style={{ marginBottom: '20px' }}>
-        <label style={{ fontSize: '14px', display: 'block', marginBottom: '8px' }}>Bet Amount (PKR):</label>
-        {[50, 100, 500, 1000].map((amt) => (
-          <button 
-            key={amt} 
-            onClick={() => setBetAmount(amt)}
-            style={{ margin: '0 4px', padding: '6px 12px', background: betAmount === amt ? '#f59e0b' : '#334155', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-            {amt}
-          </button>
+      {/* History */}
+      <div className="flex gap-1 overflow-x-auto no-scrollbar py-0.5">
+        {history.map((h, i) => (
+          <span
+            key={i}
+            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+              h === "D"
+                ? "bg-red-950 text-red-400 border border-red-600/30"
+                : h === "T"
+                ? "bg-amber-950 text-amber-400 border border-amber-600/30"
+                : "bg-emerald-950 text-emerald-400 border border-emerald-600/30"
+            }`}
+          >
+            {h}
+          </span>
         ))}
       </div>
 
-      <button 
-        onClick={startGame} 
-        disabled={isPlaying} 
-        style={{ width: '100%', padding: '14px', background: '#f59e0b', color: '#000', border: 'none', borderRadius: '8px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer' }}>
-        {isPlaying ? 'Cards Shuffling...' : 'BET NOW'}
+      {/* Arena Display */}
+      <div className="relative h-40 bg-[#141a26] rounded-2xl border border-gray-800/80 flex justify-around items-center my-auto px-4">
+        <div className="flex flex-col items-center">
+          <span className="text-3xl">🐉</span>
+          <span className="text-xs font-black text-red-500 mt-1">DRAGON</span>
+        </div>
+
+        <div className="text-center font-black text-amber-400 text-xl">
+          {isPlaying ? (
+            <span className="animate-pulse text-xs text-amber-400">SHUFFLING...</span>
+          ) : result ? (
+            result
+          ) : (
+            "VS"
+          )}
+        </div>
+
+        <div className="flex flex-col items-center">
+          <span className="text-3xl">🐅</span>
+          <span className="text-xs font-black text-amber-500 mt-1">TIGER</span>
+        </div>
+      </div>
+
+      {/* Bet Side Selection Buttons */}
+      <div className="grid grid-cols-3 gap-2">
+        <button
+          disabled={isPlaying}
+          onClick={() => setSelectedSide("dragon")}
+          className={`py-2 rounded-xl text-xs font-black transition-all ${
+            selectedSide === "dragon"
+              ? "bg-red-600 text-white ring-2 ring-red-400 scale-105"
+              : "bg-red-950/60 border border-red-500/40 text-red-400"
+          }`}
+        >
+          DRAGON (2x)
+        </button>
+
+        <button
+          disabled={isPlaying}
+          onClick={() => setSelectedSide("tie")}
+          className={`py-2 rounded-xl text-xs font-black transition-all ${
+            selectedSide === "tie"
+              ? "bg-emerald-600 text-white ring-2 ring-emerald-400 scale-105"
+              : "bg-emerald-950/60 border border-emerald-500/40 text-emerald-400"
+          }`}
+        >
+          TIE (8x)
+        </button>
+
+        <button
+          disabled={isPlaying}
+          onClick={() => setSelectedSide("tiger")}
+          className={`py-2 rounded-xl text-xs font-black transition-all ${
+            selectedSide === "tiger"
+              ? "bg-amber-600 text-white ring-2 ring-amber-400 scale-105"
+              : "bg-amber-950/60 border border-amber-500/40 text-amber-400"
+          }`}
+        >
+          TIGER (2x)
+        </button>
+      </div>
+
+      {/* Bet Amount Selector */}
+      <div className="bg-[#141a26] border border-gray-800/80 p-2 rounded-2xl flex justify-between items-center mt-1">
+        <span className="text-xs font-bold text-gray-300">BET AMOUNT:</span>
+        <div className="flex gap-1.5">
+          {[10, 50, 100, 500].map((amt) => (
+            <button
+              key={amt}
+              disabled={isPlaying}
+              onClick={() => setBetAmount(amt)}
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold ${
+                betAmount === amt
+                  ? "bg-amber-500 text-black"
+                  : "bg-[#0b0e14] text-gray-300 border border-gray-800"
+              }`}
+            >
+              {amt} PKR
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Place Bet Action Button */}
+      <button
+        disabled={isPlaying}
+        onClick={handleStartBet}
+        className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-black font-black py-3 rounded-xl uppercase text-xs shadow-lg active:scale-95 transition-all disabled:opacity-50 mt-1"
+      >
+        {isPlaying ? "Game Running..." : `Place Bet (PKR ${betAmount})`}
       </button>
+
+      {/* Footer Tabs */}
+      <div className="flex justify-center gap-6 text-xs text-gray-400 font-bold py-1 border-t border-gray-800/40 mt-1">
+        <button className="hover:text-white">All Bets</button>
+        <button className="hover:text-white">My Bets</button>
+      </div>
     </div>
   );
 }

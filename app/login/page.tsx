@@ -1,8 +1,12 @@
 "use client";
 import { useState } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
-import { useRouter } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
+
+// Initialize Supabase Client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function LoginPage() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -13,9 +17,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  const supabase = createClientComponentClient();
-  const router = useRouter();
-
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -24,7 +25,7 @@ export default function LoginPage() {
     try {
       if (isSignUp) {
         // Sign Up Flow
-        const { data, error } = await supabase.auth.signUp({
+        const { error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -36,12 +37,23 @@ export default function LoginPage() {
         setIsSignUp(false);
       } else {
         // Login Flow
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (error) throw error;
-        router.push("/"); // Direct Home Dashboard Par Bhejega
+
+        if (data?.session) {
+          // Store session flags for frontend games
+          localStorage.setItem("user_logged_in", "true");
+          localStorage.setItem("sb-session", JSON.stringify(data.session));
+          
+          // Set cookie for server checks
+          document.cookie = `sb-access-token=${data.session.access_token}; path=/; max-age=604800; SameSite=Lax`;
+        }
+
+        // Redirect to homepage/dashboard
+        window.location.href = "/";
       }
     } catch (err: any) {
       setErrorMsg(err.message || "Something went wrong!");

@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useAuth } from "./context/Authcontext";
 
 // Casino Games List
 const GAMES = [
@@ -15,11 +16,27 @@ const GAMES = [
 ];
 
 export default function Home() {
+  const { balance, user } = useAuth(); // Global Real-time Balance Fetch
   const [selectedCategory, setSelectedCategory] = useState("Hot");
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  // Live Wins Ticker (Casino 7999 Style Auto-updates)
+  // Check login status on page load & Context Update
+  useEffect(() => {
+    const checkLoginStatus = () => {
+      const userFlag = localStorage.getItem("user_logged_in") === "true";
+      const sessionData = localStorage.getItem("sb-session");
+      if (user || userFlag || sessionData) {
+        setIsLoggedIn(true);
+      } else {
+        setIsLoggedIn(false);
+      }
+    };
+
+    checkLoginStatus();
+  }, [user]);
+
+  // Live Wins Ticker
   const [tickerWin, setTickerWin] = useState({ phone: "0309***21", amount: "25,400", game: "Plinko" });
 
   useEffect(() => {
@@ -36,7 +53,18 @@ export default function Home() {
   }, []);
 
   const handleGameClick = (route: string) => {
-    if (!isLoggedIn) {
+    const userFlag = localStorage.getItem("user_logged_in") === "true" || !!localStorage.getItem("sb-session") || !!user;
+
+    if (!userFlag && !isLoggedIn) {
+      setShowAuthModal(true);
+    } else {
+      window.location.href = route;
+    }
+  };
+
+  const handleActionClick = (route: string) => {
+    const userFlag = localStorage.getItem("user_logged_in") === "true" || !!localStorage.getItem("sb-session") || !!user;
+    if (!userFlag && !isLoggedIn) {
       setShowAuthModal(true);
     } else {
       window.location.href = route;
@@ -49,7 +77,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#0b0f17] text-white pb-20 font-sans">
-      {/* 1. TOP HEADER (BRANDING, BALANCE, DEPOSIT & WITHDRAW) */}
+      {/* 1. TOP HEADER (BRANDING, LIVE BALANCE, DEPOSIT & WITHDRAW) */}
       <header className="sticky top-0 z-40 bg-[#121926] border-b border-yellow-500/20 px-4 py-3 flex items-center justify-between shadow-md">
         <div className="flex items-center gap-2">
           <span className="text-2xl">👑</span>
@@ -60,20 +88,21 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Dynamic Balance Display */}
           <div className="bg-[#1a2332] px-2.5 py-1 rounded-lg text-[11px] font-bold text-green-400 border border-green-500/30 flex items-center gap-1">
-            <span>PKR 0.00</span>
-            <span className="bg-green-500 text-black px-1 rounded text-[9px] font-extrabold">+</span>
+            <span>PKR {balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            <button onClick={() => handleActionClick("/deposit")} className="bg-green-500 text-black px-1 rounded text-[9px] font-extrabold">+</button>
           </div>
           
           <button 
-            onClick={() => setShowAuthModal(true)} 
+            onClick={() => handleActionClick("/deposit")} 
             className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-black font-extrabold text-[11px] px-2.5 py-1 rounded-lg shadow-md uppercase"
           >
             Deposit
           </button>
           
           <button 
-            onClick={() => setShowAuthModal(true)} 
+            onClick={() => handleActionClick("/withdraw")} 
             className="bg-[#1c283a] hover:bg-[#25354d] text-amber-400 border border-amber-500/40 font-bold text-[11px] px-2.5 py-1 rounded-lg uppercase"
           >
             Withdraw
@@ -177,19 +206,19 @@ export default function Home() {
 
       {/* 7. BOTTOM NAVIGATION BAR */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#0f1521] border-t border-gray-800 px-2 py-2 flex justify-around text-[10px] text-gray-400">
-        <button className="flex flex-col items-center text-amber-400 font-bold">
+        <button onClick={() => window.location.href = "/"} className="flex flex-col items-center text-amber-400 font-bold">
           <span className="text-base">🏠</span>
           <span>Home</span>
         </button>
-        <button onClick={() => setShowAuthModal(true)} className="flex flex-col items-center hover:text-white">
+        <button onClick={() => handleActionClick("/withdraw")} className="flex flex-col items-center hover:text-white">
           <span className="text-base">💳</span>
           <span>Withdraw</span>
         </button>
-        <button onClick={() => setShowAuthModal(true)} className="flex flex-col items-center hover:text-white">
-          <span className="text-base">👨‍👩‍‍‍👧‍👦</span>
+        <button onClick={() => handleActionClick("/invite")} className="flex flex-col items-center hover:text-white">
+          <span className="text-base">👨‍👩👧‍👦</span>
           <span>Invite</span>
         </button>
-        <button onClick={() => setShowAuthModal(true)} className="flex flex-col items-center hover:text-white">
+        <button onClick={() => handleActionClick("/profile")} className="flex flex-col items-center hover:text-white">
           <span className="text-base">👤</span>
           <span>Profile</span>
         </button>
