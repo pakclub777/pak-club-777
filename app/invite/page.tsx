@@ -20,22 +20,41 @@ export default function InvitePage() {
 
   useEffect(() => {
     const fetchData = async () => {
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      
+      // 1. Current user fetch karein
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        // 1. Referral Link Generate Karein
-        const origin = typeof window !== "undefined" ? window.location.origin : "";
-        setReferralLink(`${origin}/register?ref=${user.id}`);
 
-        // 2. Un Users Ko Fetch Karein Jinka referred_by Is User Ki ID Se Match Karta Ho (username field added)
+      let currentUserId = user?.id;
+
+      // Agar auth.getUser() delay kare, toh local storage session verify karein
+      if (!currentUserId) {
+        const savedSession = localStorage.getItem("sb-session");
+        if (savedSession) {
+          try {
+            const parsed = JSON.parse(savedSession);
+            currentUserId = parsed?.user?.id;
+          } catch (e) {
+            console.error("Session parse error", e);
+          }
+        }
+      }
+
+      if (currentUserId) {
+        // Referral Link set karein
+        setReferralLink(`${origin}/register?ref=${currentUserId}`);
+
+        // Referred Users (Username & Full Name) fetch karein
         const { data: referred, error } = await supabase
           .from("profiles")
           .select("id, full_name, username, phone, created_at")
-          .eq("referred_by", user.id);
+          .eq("referred_by", currentUserId);
 
         if (!error && referred) {
           setInvitedUsers(referred);
         }
       }
+
       setLoadingUsers(false);
     };
 
