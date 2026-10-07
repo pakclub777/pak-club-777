@@ -71,10 +71,23 @@ export default function DepositPage() {
       return;
     }
 
-    // Direct Insert into Supabase
+    // Profile se username fetch karein admin panel sync ke liye
+    let currentUsername = user.email || "User";
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("username, full_name")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profileData) {
+      currentUsername = profileData.username || profileData.full_name || currentUsername;
+    }
+
+    // Direct Insert into Supabase (Includes username for Admin View)
     const { error } = await supabase.from("deposits").insert([
       {
         user_id: user.id,
+        username: currentUsername,
         amount: Number(amount),
         trx_id: trxId.trim(),
         payment_method: paymentMethod,

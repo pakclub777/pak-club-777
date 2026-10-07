@@ -4,8 +4,9 @@ import { supabase } from "@/lib/supabaseClient";
 
 interface ReferredUser {
   id: string;
-  full_name: string;
-  phone: string;
+  full_name?: string;
+  username?: string;
+  phone?: string;
   created_at?: string;
 }
 
@@ -25,10 +26,10 @@ export default function InvitePage() {
         const origin = typeof window !== "undefined" ? window.location.origin : "";
         setReferralLink(`${origin}/register?ref=${user.id}`);
 
-        // 2. Un Users Ko Fetch Karein Jinka referred_by Is User Ki ID Se Match Karta Ho
+        // 2. Un Users Ko Fetch Karein Jinka referred_by Is User Ki ID Se Match Karta Ho (username field added)
         const { data: referred, error } = await supabase
           .from("profiles")
-          .select("id, full_name, phone, created_at")
+          .select("id, full_name, username, phone, created_at")
           .eq("referred_by", user.id);
 
         if (!error && referred) {
@@ -114,7 +115,7 @@ export default function InvitePage() {
         <div className="flex justify-between items-center mb-4 border-b border-gray-800/80 pb-3">
           <h2 className="text-sm font-bold text-amber-400">👥 Joined Users</h2>
           <span className="bg-amber-500/20 text-amber-400 text-xs px-2.5 py-1 rounded-full font-bold">
-            Total: {invitedUsers.length}
+            Total Invited: {invitedUsers.length}
           </span>
         </div>
 
@@ -126,24 +127,27 @@ export default function InvitePage() {
           </p>
         ) : (
           <div className="flex flex-col gap-2.5">
-            {invitedUsers.map((item, index) => (
-              <div
-                key={item.id || index}
-                className="bg-[#0b0f17] p-3 rounded-xl border border-gray-800 flex justify-between items-center"
-              >
-                <div>
-                  <p className="text-xs font-bold text-white">
-                    {item.full_name || "User"}
-                  </p>
-                  <p className="text-[11px] text-gray-400">
-                    {item.phone ? `${item.phone.substring(0, 4)}****${item.phone.slice(-3)}` : "No Phone"}
-                  </p>
+            {invitedUsers.map((item, index) => {
+              const displayName = item.username || item.full_name || "New Member";
+              return (
+                <div
+                  key={item.id || index}
+                  className="bg-[#0b0f17] p-3 rounded-xl border border-gray-800 flex justify-between items-center"
+                >
+                  <div>
+                    <p className="text-xs font-bold text-white">
+                      {displayName}
+                    </p>
+                    <p className="text-[11px] text-gray-400">
+                      {item.phone ? `${item.phone.substring(0, 4)}****${item.phone.slice(-3)}` : "Joined via Link"}
+                    </p>
+                  </div>
+                  <span className="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-md font-semibold">
+                    Active User
+                  </span>
                 </div>
-                <span className="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-md font-semibold">
-                  Active
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

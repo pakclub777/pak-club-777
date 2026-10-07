@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { useAuth } from "@/context/Authcontext";
+import { useAuth } from "@/app/context/Authcontext";
 
 export default function SlotGame() {
   const { balance, updateBalance } = useAuth(); // Global Supabase Auth & Real-time Balance

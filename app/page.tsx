@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useAuth } from "./context/Authcontext";
-import LiveTicker from "./components/LiveTicker";
+import { useAuth } from "@/context/Authcontext";
+import LiveTicker from "@/components/LiveTicker";
 
 // Casino Games List
 const GAMES = [
