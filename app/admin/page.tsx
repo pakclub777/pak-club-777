@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 interface PendingRequest {
@@ -41,6 +41,13 @@ export default function AdminPanel() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  // Active Approved Withdrawal Receipt Modal
+  const [receiptData, setReceiptData] = useState<{
+    amount: number;
+    account_type: string;
+    account_number: string;
+  } | null>(null);
 
   // Password Lock States
   const [passwordInput, setPasswordInput] = useState("");
@@ -145,7 +152,7 @@ export default function AdminPanel() {
     fetchAdminData();
   };
 
-  // Withdrawal Approve Handler
+  // Withdrawal Approve Handler + Receipt Trigger
   const handleApproveWithdrawal = async (wth: WithdrawalRequest) => {
     // Deduct Balance from User Profile
     const { data: profile } = await supabase
@@ -176,7 +183,12 @@ export default function AdminPanel() {
     if (error) {
       alert("Error approving withdrawal: " + error.message);
     } else {
-      alert("Withdrawal Successfully Done");
+      // Show Receipt Notification Modal
+      setReceiptData({
+        amount: wth.amount,
+        account_type: wth.account_type,
+        account_number: wth.account_number,
+      });
       fetchAdminData();
     }
   };
@@ -227,6 +239,12 @@ export default function AdminPanel() {
       </div>
     );
   }
+
+  // Helper mask for account number e.g. 0345****838
+  const maskAccount = (num: string) => {
+    if (!num || num.length < 7) return num;
+    return `${num.slice(0, 4)}****${num.slice(-3)}`;
+  };
 
   // 🔓 Unlocked Admin Panel
   return (
@@ -360,6 +378,70 @@ export default function AdminPanel() {
           <div className="relative max-w-sm w-full bg-[#141c2b] border border-amber-500/50 rounded-2xl p-2 shadow-2xl text-center">
             <img src={selectedImage} alt="Full View" className="w-full max-h-[75vh] object-contain rounded-xl" />
             <p className="text-[11px] text-gray-400 mt-2 font-bold">Close karne ke liye kahin bhi click karein</p>
+          </div>
+        </div>
+      )}
+
+      {/* Withdrawal Approval Generated Receipt Notification Modal (Y333/PAK_CLUB_777 Style) */}
+      {receiptData && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#1c222e] border border-gray-800 rounded-3xl p-6 w-full max-w-xs text-center relative shadow-2xl flex flex-col items-center gap-4 text-white">
+            <h3 className="text-xs font-semibold text-gray-300">Withdrawal notification</h3>
+
+            {/* Green Tick Icon */}
+            <div className="w-14 h-14 bg-[#10b981] rounded-full flex items-center justify-center text-black font-black text-2xl shadow-lg">
+              ✓
+            </div>
+
+            <span className="text-[#10b981] font-extrabold text-base">
+              Withdrawal Success
+            </span>
+
+            {/* Receipt Content Box */}
+            <div className="w-full flex flex-col gap-3 text-xs text-gray-300 font-medium my-1">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400">Withdrawal Amount</span>
+                <span className="font-bold text-white">{receiptData.amount.toLocaleString()} PKR</span>
+              </div>
+
+              {/* Watermark Row */}
+              <div className="relative py-2 border-y border-gray-800/80 flex justify-between items-center overflow-hidden">
+                <span className="text-gray-400">Fee</span>
+                <span className="font-bold text-white">0 PKR</span>
+                <span className="absolute inset-0 flex items-center justify-center text-gray-600/25 text-lg font-black italic tracking-widest pointer-events-none select-none">
+                  PAK_CLUB_777
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400">Actual arrival</span>
+                <span className="font-bold text-white">{receiptData.amount.toLocaleString()} PKR</span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400">Withdraw to</span>
+                <div className="flex items-center gap-1 font-bold text-white">
+                  <span>🟢</span>
+                  <span>{receiptData.account_type} ({maskAccount(receiptData.account_number)})</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Got it Close Button */}
+            <button
+              onClick={() => setReceiptData(null)}
+              className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-black font-extrabold py-3 rounded-2xl text-xs uppercase shadow-lg active:scale-95 transition-all mt-1"
+            >
+              Got it
+            </button>
+
+            {/* Circular Close Button */}
+            <button
+              onClick={() => setReceiptData(null)}
+              className="w-8 h-8 bg-gray-900 border border-gray-700 rounded-full flex items-center justify-center text-gray-400 hover:text-white text-xs mt-1"
+            >
+              ✕
+            </button>
           </div>
         </div>
       )}

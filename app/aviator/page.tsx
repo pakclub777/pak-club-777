@@ -13,14 +13,14 @@ interface LiveBet {
 }
 
 const INITIAL_LIVE_BETS: LiveBet[] = [
-  { id: "1", user: "5***0", bet: 88.23, mult: 1.91, win: 168.52, cashed: true },
-  { id: "2", user: "5***0", bet: 88.23, mult: 2.16, win: 190.58, cashed: true },
-  { id: "3", user: "8***3", bet: 47.64, mult: 1.67, win: 79.56, cashed: true },
-  { id: "4", user: "3***7", bet: 45.87, mult: 0, win: 0, cashed: false },
-  { id: "5", user: "3***4", bet: 44.59, mult: 0, win: 0, cashed: false },
-  { id: "6", user: "9***1", bet: 120.00, mult: 2.45, win: 294.00, cashed: true },
-  { id: "7", user: "7***2", bet: 30.50, mult: 1.35, win: 41.17, cashed: true },
-  { id: "8", user: "2***9", bet: 50.00, mult: 0, win: 0, cashed: false },
+  { id: "1", user: "5***0", bet: 100, mult: 1.91, win: 191, cashed: true },
+  { id: "2", user: "5***0", bet: 200, mult: 2.16, win: 432, cashed: true },
+  { id: "3", user: "8***3", bet: 500, mult: 1.67, win: 835, cashed: true },
+  { id: "4", user: "3***7", bet: 300, mult: 0, win: 0, cashed: false },
+  { id: "5", user: "3***4", bet: 400, mult: 0, win: 0, cashed: false },
+  { id: "6", user: "9***1", bet: 1000, mult: 2.45, win: 2450, cashed: true },
+  { id: "7", user: "7***2", bet: 200, mult: 1.35, win: 270, cashed: true },
+  { id: "8", user: "2***9", bet: 500, mult: 0, win: 0, cashed: false },
 ];
 
 export default function AviatorGame() {
@@ -33,15 +33,20 @@ export default function AviatorGame() {
   const [activeTab, setActiveTab] = useState<"ALL" | "MY" | "TOP">("ALL");
   const [liveBets, setLiveBets] = useState<LiveBet[]>(INITIAL_LIVE_BETS);
 
+  // Quick bet presets requested: 100, 200, 300, 400, 500, 1000
+  const BET_PRESETS = [100, 200, 300, 400, 500, 1000];
+
   // Panel 1
-  const [bet1Amount, setBet1Amount] = useState<number>(2.0);
+  const [bet1Amount, setBet1Amount] = useState<number>(100);
   const [bet1Placed, setBet1Placed] = useState<boolean>(false);
   const [bet1Cashed, setBet1Cashed] = useState<boolean>(false);
+  const [panel1Locked, setPanel1Locked] = useState<boolean>(false); // Lock for round
 
   // Panel 2
-  const [bet2Amount, setBet2Amount] = useState<number>(5.0);
+  const [bet2Amount, setBet2Amount] = useState<number>(200);
   const [bet2Placed, setBet2Placed] = useState<boolean>(false);
   const [bet2Cashed, setBet2Cashed] = useState<boolean>(false);
+  const [panel2Locked, setPanel2Locked] = useState<boolean>(false); // Lock for round
 
   const crashPointRef = useRef<number>(2.0);
   const multiplierRef = useRef<number>(1.00);
@@ -54,15 +59,15 @@ export default function AviatorGame() {
     if (gameState === "FLYING") {
       betInterval = setInterval(() => {
         const randomUser = `${Math.floor(Math.random() * 9 + 1)}***${Math.floor(Math.random() * 9)}`;
-        const randomBet = parseFloat((Math.random() * 100 + 10).toFixed(2));
+        const randomPreset = BET_PRESETS[Math.floor(Math.random() * BET_PRESETS.length)];
         const isCash = Math.random() > 0.3;
         const currentMult = parseFloat(multiplierRef.current.toFixed(2));
-        const winAmount = parseFloat((randomBet * currentMult).toFixed(2));
+        const winAmount = Math.round(randomPreset * currentMult);
 
         const newBet: LiveBet = {
           id: Date.now().toString() + Math.random(),
           user: randomUser,
-          bet: randomBet,
+          bet: randomPreset,
           mult: isCash ? currentMult : 0,
           win: isCash ? winAmount : 0,
           cashed: isCash,
@@ -88,6 +93,10 @@ export default function AviatorGame() {
     multiplierRef.current = 1.0;
     setBet1Cashed(false);
     setBet2Cashed(false);
+    setBet1Placed(false);
+    setBet2Placed(false);
+    setPanel1Locked(false); // Reset lock when new round starts
+    setPanel2Locked(false); // Reset lock when new round starts
     
     let timer = 5;
     setCountdown(timer);
@@ -129,36 +138,42 @@ export default function AviatorGame() {
   };
 
   const handlePlaceBet1 = async () => {
-    if (bet1Placed) return;
+    if (bet1Placed || panel1Locked) return;
     if (balance < bet1Amount) {
       alert("Aapka balance kam hai!");
       return;
     }
     const ok = await updateBalance(-bet1Amount);
-    if (ok) setBet1Placed(true);
+    if (ok) {
+      setBet1Placed(true);
+      setPanel1Locked(true); // Single bet lock per round
+    }
   };
 
   const handleCashoutBet1 = async () => {
     if (!bet1Placed || bet1Cashed || gameState !== "FLYING") return;
-    const win = parseFloat((bet1Amount * multiplierRef.current).toFixed(2));
+    const win = Math.round(bet1Amount * multiplierRef.current);
     setBet1Cashed(true);
     setBet1Placed(false);
     await updateBalance(win);
   };
 
   const handlePlaceBet2 = async () => {
-    if (bet2Placed) return;
+    if (bet2Placed || panel2Locked) return;
     if (balance < bet2Amount) {
       alert("Aapka balance kam hai!");
       return;
     }
     const ok = await updateBalance(-bet2Amount);
-    if (ok) setBet2Placed(true);
+    if (ok) {
+      setBet2Placed(true);
+      setPanel2Locked(true); // Single bet lock per round
+    }
   };
 
   const handleCashoutBet2 = async () => {
     if (!bet2Placed || bet2Cashed || gameState !== "FLYING") return;
-    const win = parseFloat((bet2Amount * multiplierRef.current).toFixed(2));
+    const win = Math.round(bet2Amount * multiplierRef.current);
     setBet2Cashed(true);
     setBet2Placed(false);
     await updateBalance(win);
@@ -182,7 +197,7 @@ export default function AviatorGame() {
 
         <div className="flex items-center gap-2">
           <span className="text-emerald-400 font-mono font-bold text-xs">
-            {balance.toFixed(2)} <span className="text-[10px] text-gray-400">USD</span>
+            PKR {balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
           <Link href="/" className="text-gray-400 text-lg">☰</Link>
         </div>
@@ -204,7 +219,7 @@ export default function AviatorGame() {
         ))}
       </div>
 
-      {/* Main Game Screen with Red Sunburst, Red Curve & Plane */}
+      {/* Main Game Display */}
       <div 
         className="relative h-48 w-full rounded-xl border border-gray-800 overflow-hidden flex flex-col justify-between p-3 shadow-inner"
         style={{
@@ -274,15 +289,16 @@ export default function AviatorGame() {
           <div className="flex items-center justify-between gap-2">
             <div className="flex flex-col gap-1 w-1/2">
               <div className="flex items-center bg-[#0a0d14] border border-gray-800 rounded-lg p-1 justify-between">
-                <button onClick={() => setBet1Amount(Math.max(1, bet1Amount - 1))} className="text-gray-400 font-bold px-1.5">-</button>
-                <span className="text-xs font-black text-white">{bet1Amount.toFixed(2)}</span>
-                <button onClick={() => setBet1Amount(bet1Amount + 1)} className="text-gray-400 font-bold px-1.5">+</button>
+                <button onClick={() => setBet1Amount(Math.max(10, bet1Amount - 50))} className="text-gray-400 font-bold px-1.5">-</button>
+                <span className="text-xs font-black text-white">{bet1Amount} PKR</span>
+                <button onClick={() => setBet1Amount(bet1Amount + 50)} className="text-gray-400 font-bold px-1.5">+</button>
               </div>
 
-              <div className="grid grid-cols-4 gap-1 text-[9px] font-bold text-gray-300">
-                {[1.00, 2.00, 5.00, 10.00].map((v) => (
+              {/* Presets: 100, 200, 300, 400, 500, 1000 */}
+              <div className="grid grid-cols-3 gap-1 text-[8px] font-bold text-gray-300">
+                {BET_PRESETS.map((v) => (
                   <button key={v} onClick={() => setBet1Amount(v)} className="bg-[#1d2333] rounded py-0.5 hover:bg-gray-700">
-                    {v.toFixed(2)}
+                    {v}
                   </button>
                 ))}
               </div>
@@ -294,18 +310,22 @@ export default function AviatorGame() {
                 className="w-1/2 bg-[#e67e22] hover:bg-[#d35400] text-black font-black py-3 rounded-xl uppercase text-xs shadow-lg active:scale-95 transition-all flex flex-col items-center justify-center"
               >
                 <span>CASH OUT</span>
-                <span className="text-[10px]">{(bet1Amount * multiplier).toFixed(2)} USD</span>
+                <span className="text-[10px]">{Math.round(bet1Amount * multiplier)} PKR</span>
               </button>
             ) : (
               <button
                 onClick={handlePlaceBet1}
-                disabled={bet1Placed && gameState === "WAITING"}
+                disabled={panel1Locked || (bet1Placed && gameState === "WAITING")}
                 className={`w-1/2 ${
-                  bet1Placed ? "bg-amber-600 text-black" : "bg-[#27ae60] hover:bg-[#219653]"
-                } text-white font-black py-3 rounded-xl uppercase text-xs shadow-lg active:scale-95 transition-all flex flex-col items-center justify-center`}
+                  panel1Locked
+                    ? "bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700"
+                    : bet1Placed
+                    ? "bg-amber-600 text-black"
+                    : "bg-[#27ae60] hover:bg-[#219653] text-white"
+                } font-black py-3 rounded-xl uppercase text-xs shadow-lg active:scale-95 transition-all flex flex-col items-center justify-center`}
               >
-                <span>{bet1Placed ? "WAITING" : "BET"}</span>
-                <span className="text-[10px]">{bet1Amount.toFixed(2)} USD</span>
+                <span>{panel1Locked ? "WAIT NEXT ROUND" : bet1Placed ? "WAITING" : "BET"}</span>
+                <span className="text-[10px]">{bet1Amount} PKR</span>
               </button>
             )}
           </div>
@@ -321,15 +341,16 @@ export default function AviatorGame() {
           <div className="flex items-center justify-between gap-2">
             <div className="flex flex-col gap-1 w-1/2">
               <div className="flex items-center bg-[#0a0d14] border border-gray-800 rounded-lg p-1 justify-between">
-                <button onClick={() => setBet2Amount(Math.max(1, bet2Amount - 1))} className="text-gray-400 font-bold px-1.5">-</button>
-                <span className="text-xs font-black text-white">{bet2Amount.toFixed(2)}</span>
-                <button onClick={() => setBet2Amount(bet2Amount + 1)} className="text-gray-400 font-bold px-1.5">+</button>
+                <button onClick={() => setBet2Amount(Math.max(10, bet2Amount - 50))} className="text-gray-400 font-bold px-1.5">-</button>
+                <span className="text-xs font-black text-white">{bet2Amount} PKR</span>
+                <button onClick={() => setBet2Amount(bet2Amount + 50)} className="text-gray-400 font-bold px-1.5">+</button>
               </div>
 
-              <div className="grid grid-cols-4 gap-1 text-[9px] font-bold text-gray-300">
-                {[1.00, 2.00, 5.00, 10.00].map((v) => (
+              {/* Presets: 100, 200, 300, 400, 500, 1000 */}
+              <div className="grid grid-cols-3 gap-1 text-[8px] font-bold text-gray-300">
+                {BET_PRESETS.map((v) => (
                   <button key={v} onClick={() => setBet2Amount(v)} className="bg-[#1d2333] rounded py-0.5 hover:bg-gray-700">
-                    {v.toFixed(2)}
+                    {v}
                   </button>
                 ))}
               </div>
@@ -341,18 +362,22 @@ export default function AviatorGame() {
                 className="w-1/2 bg-[#e67e22] hover:bg-[#d35400] text-black font-black py-3 rounded-xl uppercase text-xs shadow-lg active:scale-95 transition-all flex flex-col items-center justify-center"
               >
                 <span>CASH OUT</span>
-                <span className="text-[10px]">{(bet2Amount * multiplier).toFixed(2)} USD</span>
+                <span className="text-[10px]">{Math.round(bet2Amount * multiplier)} PKR</span>
               </button>
             ) : (
               <button
                 onClick={handlePlaceBet2}
-                disabled={bet2Placed && gameState === "WAITING"}
+                disabled={panel2Locked || (bet2Placed && gameState === "WAITING")}
                 className={`w-1/2 ${
-                  bet2Placed ? "bg-amber-600 text-black" : "bg-[#27ae60] hover:bg-[#219653]"
-                } text-white font-black py-3 rounded-xl uppercase text-xs shadow-lg active:scale-95 transition-all flex flex-col items-center justify-center`}
+                  panel2Locked
+                    ? "bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700"
+                    : bet2Placed
+                    ? "bg-amber-600 text-black"
+                    : "bg-[#27ae60] hover:bg-[#219653] text-white"
+                } font-black py-3 rounded-xl uppercase text-xs shadow-lg active:scale-95 transition-all flex flex-col items-center justify-center`}
               >
-                <span>{bet2Placed ? "WAITING" : "BET"}</span>
-                <span className="text-[10px]">{bet2Amount.toFixed(2)} USD</span>
+                <span>{panel2Locked ? "WAIT NEXT ROUND" : bet2Placed ? "WAITING" : "BET"}</span>
+                <span className="text-[10px]">{bet2Amount} PKR</span>
               </button>
             )}
           </div>
@@ -381,7 +406,7 @@ export default function AviatorGame() {
               <span className="flex items-center gap-1">
                 <span>👤</span> {item.user}
               </span>
-              <span>{item.bet.toFixed(2)}</span>
+              <span>{item.bet} PKR</span>
               {item.cashed ? (
                 <span className="bg-[#10ac84] text-black font-bold px-1 rounded text-[9px]">
                   {item.mult.toFixed(2)}x
@@ -390,7 +415,7 @@ export default function AviatorGame() {
                 <span>-</span>
               )}
               <span className="font-bold text-white">
-                {item.cashed ? item.win.toFixed(2) : "-"}
+                {item.cashed ? `${item.win} PKR` : "-"}
               </span>
             </div>
           ))}
