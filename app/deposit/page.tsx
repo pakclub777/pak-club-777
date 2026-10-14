@@ -102,16 +102,15 @@ export default function DepositPage() {
       userPhone = profileData.phone_number || profileData.phone || userPhone;
     }
 
-    // 1. Upload Screenshot to Supabase Storage Bucket
+    // 1. Upload Screenshot to Supabase Storage Bucket ('screenshots')
     let screenshotPublicUrl = "";
     if (screenshot) {
       const fileExt = screenshot.name.split('.').pop();
       const fileName = `${user.id}_${Date.now()}.${fileExt}`;
-      const filePath = `screenshots/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from("deposit-screenshots")
-        .upload(filePath, screenshot);
+        .from("screenshots")
+        .upload(fileName, screenshot);
 
       if (uploadError) {
         console.error("Image upload error:", uploadError);
@@ -122,8 +121,8 @@ export default function DepositPage() {
 
       // Public URL generate karein Admin Panel view ke liye
       const { data: publicUrlData } = supabase.storage
-        .from("deposit-screenshots")
-        .getPublicUrl(filePath);
+        .from("screenshots")
+        .getPublicUrl(fileName);
 
       screenshotPublicUrl = publicUrlData.publicUrl;
     }
@@ -225,134 +224,3 @@ export default function DepositPage() {
               }`}
             >
               <span>EasyPaisa</span>
-            </button>
-          </div>
-
-          {/* Account Details Box */}
-          <div className={`flex flex-col gap-2.5 bg-[#141c2b] border ${
-            paymentMethod === "jazzcash" ? "border-red-500/30" : "border-green-500/30"
-          } p-3.5 rounded-2xl shadow-md`}>
-            <p className="text-[11px] font-bold text-gray-300 uppercase tracking-wider">
-              In {paymentMethod === "jazzcash" ? "JazzCash" : "EasyPaisa"} Accounts Par Paisa Bhejein:
-            </p>
-
-            {(paymentMethod === "jazzcash" ? jazzcashAccounts : easypaisaAccounts).map((acc, index) => {
-              const key = `${paymentMethod}-${index}`;
-              const isCopied = copiedIndex === key;
-              return (
-                <div key={key} className="bg-[#0b0f17] border border-gray-800 p-3 rounded-xl flex justify-between items-center">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs font-black text-white">{acc.name}</p>
-                      <span className={`text-black text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wide ${
-                        paymentMethod === "jazzcash" ? "bg-red-500 text-white" : "bg-green-500 text-black"
-                      }`}>
-                        ⚡ {acc.type}
-                      </span>
-                    </div>
-                    <p className="text-sm font-mono font-bold text-amber-400 mt-1">{acc.number}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleCopy(acc.number, key)}
-                    className={`text-[11px] px-3 py-1.5 rounded-lg font-bold border transition-all active:scale-95 ${
-                      isCopied
-                        ? "bg-green-600 text-white border-green-500"
-                        : "bg-[#141c2b] text-amber-400 border-amber-500/40 hover:bg-amber-500 hover:text-black"
-                    }`}
-                  >
-                    {isCopied ? "Copied!" : "Copy"}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Amount Input */}
-          <div className="bg-[#141c2b] border border-gray-800 p-3.5 rounded-2xl flex flex-col gap-2 shadow-md">
-            <div className="flex justify-between items-center">
-              <label className="text-xs font-bold text-gray-300">Enter Amount (PKR)</label>
-              <span className="text-[10px] text-amber-400 font-bold">Min: 1000 PKR</span>
-            </div>
-            <input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value === "" ? "" : Number(e.target.value))}
-              className="bg-[#0b0f17] border border-gray-800 rounded-xl p-3 text-amber-400 font-black text-lg focus:outline-none focus:border-amber-500"
-              placeholder="Min 1000"
-              min={1000}
-              required
-            />
-            <div className="grid grid-cols-4 gap-2 mt-1">
-              {[1000, 2000, 5000, 10000].map((amt) => (
-                <button
-                  key={amt}
-                  type="button"
-                  onClick={() => setAmount(amt)}
-                  className="bg-[#0b0f17] text-[11px] text-gray-300 border border-gray-800 py-2 rounded-lg font-bold hover:border-amber-500/50 hover:text-amber-400 transition-colors"
-                >
-                  {amt}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Transaction ID Input */}
-          <div className="bg-[#141c2b] border border-gray-800 p-3.5 rounded-2xl flex flex-col gap-1.5 shadow-md">
-            <label className="text-xs font-bold text-gray-300">Enter Trx ID / TID (Transaction ID)</label>
-            <input
-              type="text"
-              value={trxId}
-              onChange={(e) => setTrxId(e.target.value)}
-              className="bg-[#0b0f17] border border-gray-800 rounded-xl p-3 text-white font-mono text-sm focus:outline-none focus:border-amber-500"
-              placeholder="e.g. 84920492810"
-              required
-            />
-          </div>
-
-          {/* NEW: Payment Screenshot Upload Section */}
-          <div className="bg-[#141c2b] border border-gray-800 p-3.5 rounded-2xl flex flex-col gap-2 shadow-md">
-            <label className="text-xs font-bold text-gray-300 flex justify-between items-center">
-              <span>Upload Payment Screenshot</span>
-              <span className="text-[10px] text-amber-400 font-normal">*Required</span>
-            </label>
-            
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageChange}
-              id="screenshot-input"
-              className="hidden"
-            />
-            
-            <label
-              htmlFor="screenshot-input"
-              className="cursor-pointer bg-[#0b0f17] border border-dashed border-gray-700 hover:border-amber-500 p-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-colors"
-            >
-              {previewUrl ? (
-                <div className="flex flex-col items-center gap-2 w-full">
-                  <img src={previewUrl} alt="Payment Screenshot Preview" className="max-h-40 rounded-lg object-contain border border-gray-800" />
-                  <span className="text-xs text-amber-400 font-bold">Change Screenshot</span>
-                </div>
-              ) : (
-                <>
-                  <span className="text-2xl">📸</span>
-                  <span className="text-xs text-gray-400 font-medium">Click karke Screenshot upload karein</span>
-                </>
-              )}
-            </label>
-          </div>
-
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 font-black text-black py-3.5 rounded-xl uppercase text-xs shadow-lg active:scale-95 transition-all mt-1 disabled:opacity-50"
-          >
-            {loading ? "Sending & Uploading..." : `Submit Deposit Request (PKR ${amount || 0})`}
-          </button>
-        </form>
-      )}
-    </div>
-  );
-}
