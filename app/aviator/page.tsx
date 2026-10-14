@@ -3,16 +3,24 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/Authcontext";
 
-// Live Bets Feed mirroring reference picture exactly
-const INITIAL_LIVE_BETS = [
+interface LiveBet {
+  id: string;
+  user: string;
+  bet: number;
+  mult: number;
+  win: number;
+  cashed: boolean;
+}
+
+const INITIAL_LIVE_BETS: LiveBet[] = [
   { id: "1", user: "5***0", bet: 88.23, mult: 1.91, win: 168.52, cashed: true },
   { id: "2", user: "5***0", bet: 88.23, mult: 2.16, win: 190.58, cashed: true },
   { id: "3", user: "8***3", bet: 47.64, mult: 1.67, win: 79.56, cashed: true },
   { id: "4", user: "3***7", bet: 45.87, mult: 0, win: 0, cashed: false },
   { id: "5", user: "3***4", bet: 44.59, mult: 0, win: 0, cashed: false },
-  { id: "6", user: "3***4", bet: 44.59, mult: 0, win: 0, cashed: false },
-  { id: "7", user: "3***7", bet: 45.87, mult: 0, win: 0, cashed: false },
-  { id: "8", user: "3***4", bet: 44.59, mult: 0, win: 0, cashed: false },
+  { id: "6", user: "9***1", bet: 120.00, mult: 2.45, win: 294.00, cashed: true },
+  { id: "7", user: "7***2", bet: 30.50, mult: 1.35, win: 41.17, cashed: true },
+  { id: "8", user: "2***9", bet: 50.00, mult: 0, win: 0, cashed: false },
 ];
 
 export default function AviatorGame() {
@@ -23,6 +31,7 @@ export default function AviatorGame() {
   const [countdown, setCountdown] = useState<number>(5);
   const [history, setHistory] = useState<string[]>(["1.02x", "1.62x", "1.47x", "1.49x", "1.22x", "1.54x", "1.00x", "1.18x", "2.17x", "3.06x", "1.83x"]);
   const [activeTab, setActiveTab] = useState<"ALL" | "MY" | "TOP">("ALL");
+  const [liveBets, setLiveBets] = useState<LiveBet[]>(INITIAL_LIVE_BETS);
 
   // Panel 1
   const [bet1Amount, setBet1Amount] = useState<number>(2.0);
@@ -36,8 +45,34 @@ export default function AviatorGame() {
 
   const crashPointRef = useRef<number>(2.0);
   const multiplierRef = useRef<number>(1.00);
-  const loopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const loopTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Live Auto-updating bets feed during flying phase
+  useEffect(() => {
+    let betInterval: NodeJS.Timeout;
+    if (gameState === "FLYING") {
+      betInterval = setInterval(() => {
+        const randomUser = `${Math.floor(Math.random() * 9 + 1)}***${Math.floor(Math.random() * 9)}`;
+        const randomBet = parseFloat((Math.random() * 100 + 10).toFixed(2));
+        const isCash = Math.random() > 0.3;
+        const currentMult = parseFloat(multiplierRef.current.toFixed(2));
+        const winAmount = parseFloat((randomBet * currentMult).toFixed(2));
+
+        const newBet: LiveBet = {
+          id: Date.now().toString() + Math.random(),
+          user: randomUser,
+          bet: randomBet,
+          mult: isCash ? currentMult : 0,
+          win: isCash ? winAmount : 0,
+          cashed: isCash,
+        };
+
+        setLiveBets((prev) => [newBet, ...prev.slice(0, 9)]);
+      }, 1200);
+    }
+    return () => clearInterval(betInterval);
+  }, [gameState]);
 
   useEffect(() => {
     runGameLoop();
@@ -324,7 +359,7 @@ export default function AviatorGame() {
         </div>
       </div>
 
-      {/* Live Wins Feed Table */}
+      {/* Dynamic Live Wins Feed Table */}
       <div className="bg-[#10131c] rounded-t-xl border-t border-gray-800 p-2 flex flex-col h-36 overflow-hidden">
         <div className="flex justify-between items-center text-[10px] font-bold pb-1 border-b border-gray-800">
           <div className="flex gap-3 text-gray-400">
@@ -336,10 +371,10 @@ export default function AviatorGame() {
         </div>
 
         <div className="overflow-y-auto space-y-1 mt-1 text-[10px] font-mono">
-          {INITIAL_LIVE_BETS.map((item) => (
+          {liveBets.map((item) => (
             <div
               key={item.id}
-              className={`flex justify-between items-center px-2 py-1 rounded ${
+              className={`flex justify-between items-center px-2 py-1 rounded transition-all duration-300 ${
                 item.cashed ? "bg-[#1b3827] text-white" : "bg-[#151922] text-gray-400"
               }`}
             >

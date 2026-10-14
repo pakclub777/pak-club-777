@@ -2,11 +2,11 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/Authcontext";
-import LiveTicker from "@/components/LiveTicker";
+import LiveTicker from "@/app/components/LiveTicker";
 
-// Casino Games List
+// Casino Games List (Fixed Aviator Route to /aviator)
 const GAMES = [
-  { id: "aviator", name: "AVIATOR", category: "Hot", image: "🚀", route: "/crash", isHot: true },
+  { id: "aviator", name: "AVIATOR", category: "Hot", image: "🚀", route: "/aviator", isHot: true },
   { id: "rocket", name: "ROCKET CRASH", category: "Hot", image: "🔥", route: "/crash", isHot: true },
   { id: "dragon", name: "DRAGON VS TIGER", category: "Cards", image: "🐉", route: "/dragon-tiger", isHot: true },
   { id: "mines", name: "MINES", category: "Hot", image: "💣", route: "/mines", isHot: false },
@@ -17,12 +17,11 @@ const GAMES = [
 ];
 
 export default function Home() {
-  const { balance, user } = useAuth(); // Global Real-time Balance Fetch
+  const { balance, user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState("Hot");
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  // Check login status on page load & Context Update
   useEffect(() => {
     const checkLoginStatus = () => {
       const userFlag = localStorage.getItem("user_logged_in") === "true";
@@ -62,7 +61,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#0b0f17] text-white pb-20 font-sans">
-      {/* 1. TOP HEADER (BRANDING, LIVE BALANCE, DEPOSIT & WITHDRAW) */}
       <header className="sticky top-0 z-40 bg-[#121926] border-b border-yellow-500/20 px-4 py-3 flex items-center justify-between shadow-md">
         <div className="flex items-center gap-2">
           <span className="text-2xl">👑</span>
@@ -73,7 +71,6 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Dynamic Balance Display */}
           <div className="bg-[#1a2332] px-2.5 py-1 rounded-lg text-[11px] font-bold text-green-400 border border-green-500/30 flex items-center gap-1">
             <span>PKR {balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             <button onClick={() => handleActionClick("/deposit")} className="bg-green-500 text-black px-1 rounded text-[9px] font-extrabold">+</button>
@@ -95,7 +92,6 @@ export default function Home() {
         </div>
       </header>
 
-      {/* 2. PROMO BANNER */}
       <div className="p-3">
         <div className="bg-gradient-to-r from-amber-600 via-purple-800 to-indigo-950 rounded-2xl p-4 relative overflow-hidden shadow-xl border border-amber-500/30">
           <div className="relative z-10">
@@ -109,12 +105,10 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 3. LIVE WINNING TICKER */}
       <div className="px-3">
         <LiveTicker />
       </div>
 
-      {/* 4. CATEGORIES TABS */}
       <div className="px-3 mb-3">
         <div className="flex gap-2 overflow-x-auto no-scrollbar py-1 text-xs font-semibold">
           {["Hot", "Cards", "Slot", "Live"].map((cat) => (
@@ -133,7 +127,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 5. GAMES GRID */}
       <div className="px-3 grid grid-cols-3 gap-2.5">
         {filteredGames.map((game) => (
           <div
@@ -152,7 +145,6 @@ export default function Home() {
         ))}
       </div>
 
-      {/* 6. SIGN IN / SIGN UP POPUP MODAL */}
       {showAuthModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-[#141c2b] border border-amber-500/40 rounded-2xl p-5 w-full max-w-xs text-center relative shadow-2xl">
