@@ -8,6 +8,20 @@ interface PendingRequest {
   amount: number;
   trx_id: string;
   payment_method: string;
+  screenshot_url?: string;
+  status: string;
+  created_at: string;
+  user_name?: string;
+  user_phone?: string;
+}
+
+interface WithdrawalRequest {
+  id: string;
+  user_id: string;
+  amount: number;
+  account_type: string;
+  account_number: string;
+  account_title: string;
   status: string;
   created_at: string;
   user_name?: string;
@@ -23,8 +37,10 @@ interface UserProfile {
 
 export default function AdminPanel() {
   const [requests, setRequests] = useState<PendingRequest[]>([]);
+  const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   // Password Lock States
   const [passwordInput, setPasswordInput] = useState("");
@@ -73,6 +89,22 @@ export default function AdminPanel() {
       setRequests(formatted);
     }
 
+    // 3. Fetch Pending Withdrawals
+    const { data: withdrawalsData } = await supabase
+      .from("withdrawal_requests")
+      .select("*")
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
+
+    if (withdrawalsData) {
+      const formattedWith = withdrawalsData.map((w) => ({
+        ...w,
+        user_name: userMap[w.user_id]?.full_name || w.account_title || "Unknown User",
+        user_phone: userMap[w.user_id]?.phone || w.account_number || "N/A",
+      }));
+      setWithdrawals(formattedWith);
+    }
+
     setLoading(false);
   };
 
@@ -111,6 +143,42 @@ export default function AdminPanel() {
 
     alert(`✅ PKR ${req.amount} successfully added to ${req.user_name}'s account!`);
     fetchAdminData();
+  };
+
+  // Withdrawal Approve Handler
+  const handleApproveWithdrawal = async (wth: WithdrawalRequest) => {
+    // Deduct Balance from User Profile
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("balance")
+      .eq("id", wth.user_id)
+      .single();
+
+    const currentBalance = profile?.balance || 0;
+    if (currentBalance < wth.amount) {
+      alert("User ke paas itna balance nahi hai!");
+      return;
+    }
+
+    const newBalance = Number(currentBalance) - Number(wth.amount);
+
+    await supabase
+      .from("profiles")
+      .update({ balance: newBalance })
+      .eq("id", wth.user_id);
+
+    // Update Withdrawal status to completed
+    const { error } = await supabase
+      .from("withdrawal_requests")
+      .update({ status: "completed" })
+      .eq("id", wth.id);
+
+    if (error) {
+      alert("Error approving withdrawal: " + error.message);
+    } else {
+      alert("Withdrawal Successfully Done");
+      fetchAdminData();
+    }
   };
 
   // 🔒 Password Prompt Screen
@@ -181,7 +249,7 @@ export default function AdminPanel() {
         </div>
       </div>
 
-      {/* Pending Requests */}
+      {/* Pending Deposits */}
       <div className="mb-6">
         <h2 className="text-xs font-bold text-amber-400 mb-2">
           💳 Pending Deposits ({requests.length})
@@ -201,15 +269,63 @@ export default function AdminPanel() {
                   </div>
                   <span className="text-xs font-black text-amber-400">PKR {req.amount}</span>
                 </div>
+                
                 <div className="text-[11px] font-mono text-gray-300">
                   <p>Method: <span className="text-amber-300 font-bold uppercase">{req.payment_method}</span></p>
                   <p>Trx ID: <span className="text-amber-400 font-bold">{req.trx_id}</span></p>
                 </div>
+
+                {/* Screenshot Thumbnail */}
+                {req.screenshot_url && (
+                  <div className="mt-1">
+                    <button
+                      onClick={() => setSelectedImage(req.screenshot_url || null)}
+                      className="bg-[#0b0f17] border border-gray-700 p-1 rounded-lg hover:border-amber-500 transition-colors flex items-center gap-2 w-full"
+                    >
+                      <img src={req.screenshot_url} alt="Proof" className="w-10 h-10 object-cover rounded" />
+                      <span className="text-[11px] text-amber-400 font-bold">View Payment Screenshot</span>
+                    </button>
+                  </div>
+                )}
+
                 <button
                   onClick={() => handleApprove(req)}
                   className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded-lg text-xs mt-1"
                 >
                   ✓ Approve PKR {req.amount}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Pending Withdrawals */}
+      <div className="mb-6">
+        <h2 className="text-xs font-bold text-emerald-400 mb-2">
+          💸 Pending Withdrawals ({withdrawals.length})
+        </h2>
+        {withdrawals.length === 0 ? (
+          <p className="text-xs text-gray-400 bg-[#141c2b] p-3 rounded-lg border border-gray-800">
+            Koi pending withdrawal nahi hai.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {withdrawals.map((wth) => (
+              <div key={wth.id} className="bg-[#141c2b] border border-emerald-500/30 p-3 rounded-xl flex flex-col gap-2">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-xs font-bold text-white">{wth.account_title}</p>
+                    <p className="text-[10px] text-gray-400">{wth.account_number} ({wth.account_type})</p>
+                  </div>
+                  <span className="text-xs font-black text-emerald-400">PKR {wth.amount}</span>
+                </div>
+
+                <button
+                  onClick={() => handleApproveWithdrawal(wth)}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded-lg text-xs mt-1"
+                >
+                  ✓ Approve Withdrawal
                 </button>
               </div>
             ))}
@@ -234,6 +350,19 @@ export default function AdminPanel() {
           ))}
         </div>
       </div>
+
+      {/* Full Size Image Preview Modal */}
+      {selectedImage && (
+        <div
+          onClick={() => setSelectedImage(null)}
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 cursor-pointer"
+        >
+          <div className="relative max-w-sm w-full bg-[#141c2b] border border-amber-500/50 rounded-2xl p-2 shadow-2xl text-center">
+            <img src={selectedImage} alt="Full View" className="w-full max-h-[75vh] object-contain rounded-xl" />
+            <p className="text-[11px] text-gray-400 mt-2 font-bold">Close karne ke liye kahin bhi click karein</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

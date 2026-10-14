@@ -7,6 +7,8 @@ export default function DepositPage() {
   const [amount, setAmount] = useState<number | "">(1000);
   const [trxId, setTrxId] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<"jazzcash" | "easypaisa">("jazzcash");
+  const [screenshot, setScreenshot] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [userBalance, setUserBalance] = useState<number>(0);
@@ -48,6 +50,15 @@ export default function DepositPage() {
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
+  // Image select karne ka handler
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setScreenshot(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
   const handleDeposit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -61,6 +72,11 @@ export default function DepositPage() {
       return;
     }
 
+    if (!screenshot) {
+      alert("Meharbani karke payment ka screenshot attach karein!");
+      return;
+    }
+
     setLoading(true);
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -71,26 +87,57 @@ export default function DepositPage() {
       return;
     }
 
-    // Profile se username fetch karein admin panel sync ke liye
+    // Profile se details fetch karein admin panel sync ke liye
     let currentUsername = user.email || "User";
+    let userPhone = user.phone || "";
+
     const { data: profileData } = await supabase
       .from("profiles")
-      .select("username, full_name")
+      .select("username, full_name, phone_number, phone")
       .eq("id", user.id)
       .maybeSingle();
 
     if (profileData) {
       currentUsername = profileData.username || profileData.full_name || currentUsername;
+      userPhone = profileData.phone_number || profileData.phone || userPhone;
     }
 
-    // Direct Insert into Supabase (Includes username for Admin View)
+    // 1. Upload Screenshot to Supabase Storage Bucket
+    let screenshotPublicUrl = "";
+    if (screenshot) {
+      const fileExt = screenshot.name.split('.').pop();
+      const fileName = `${user.id}_${Date.now()}.${fileExt}`;
+      const filePath = `screenshots/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("deposit-screenshots")
+        .upload(filePath, screenshot);
+
+      if (uploadError) {
+        console.error("Image upload error:", uploadError);
+        alert("Screenshot upload mein masla hua: " + uploadError.message);
+        setLoading(false);
+        return;
+      }
+
+      // Public URL generate karein Admin Panel view ke liye
+      const { data: publicUrlData } = supabase.storage
+        .from("deposit-screenshots")
+        .getPublicUrl(filePath);
+
+      screenshotPublicUrl = publicUrlData.publicUrl;
+    }
+
+    // 2. Direct Insert into Supabase Table
     const { error } = await supabase.from("deposits").insert([
       {
         user_id: user.id,
         username: currentUsername,
+        phone_number: userPhone,
         amount: Number(amount),
         trx_id: trxId.trim(),
         payment_method: paymentMethod,
+        screenshot_url: screenshotPublicUrl,
         status: "pending",
       },
     ]);
@@ -104,8 +151,6 @@ export default function DepositPage() {
       setIsSubmitted(true);
     }
   };
-
-  const currentAccounts = paymentMethod === "jazzcash" ? jazzcashAccounts : easypaisaAccounts;
 
   return (
     <div className="min-h-screen bg-[#0b0f17] text-white p-4 w-full max-w-lg mx-auto flex flex-col gap-4 font-sans pb-10">
@@ -123,7 +168,7 @@ export default function DepositPage() {
       {/* Header */}
       <div>
         <h1 className="text-xl font-black text-amber-400">Deposit Funds</h1>
-        <p className="text-xs text-gray-400 mt-0.5">Paisa bhej kar Transaction ID enter karein</p>
+        <p className="text-xs text-gray-400 mt-0.5">Paisa bhej kar Transaction ID aur Screenshot attach karein</p>
       </div>
 
       {isSubmitted ? (
@@ -146,6 +191,8 @@ export default function DepositPage() {
               setIsSubmitted(false);
               setAmount(1000);
               setTrxId("");
+              setScreenshot(null);
+              setPreviewUrl(null);
             }}
             className="w-full bg-amber-500 hover:bg-amber-600 text-black font-extrabold py-3 rounded-xl text-xs mt-2 transition-all active:scale-95"
           >
@@ -181,7 +228,7 @@ export default function DepositPage() {
             </button>
           </div>
 
-          {/* Account Details Box with Copy Buttons */}
+          {/* Account Details Box */}
           <div className={`flex flex-col gap-2.5 bg-[#141c2b] border ${
             paymentMethod === "jazzcash" ? "border-red-500/30" : "border-green-500/30"
           } p-3.5 rounded-2xl shadow-md`}>
@@ -189,7 +236,7 @@ export default function DepositPage() {
               In {paymentMethod === "jazzcash" ? "JazzCash" : "EasyPaisa"} Accounts Par Paisa Bhejein:
             </p>
 
-            {currentAccounts.map((acc, index) => {
+            {(paymentMethod === "jazzcash" ? jazzcashAccounts : easypaisaAccounts).map((acc, index) => {
               const key = `${paymentMethod}-${index}`;
               const isCopied = copiedIndex === key;
               return (
@@ -263,13 +310,46 @@ export default function DepositPage() {
             />
           </div>
 
+          {/* NEW: Payment Screenshot Upload Section */}
+          <div className="bg-[#141c2b] border border-gray-800 p-3.5 rounded-2xl flex flex-col gap-2 shadow-md">
+            <label className="text-xs font-bold text-gray-300 flex justify-between items-center">
+              <span>Upload Payment Screenshot</span>
+              <span className="text-[10px] text-amber-400 font-normal">*Required</span>
+            </label>
+            
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImageChange}
+              id="screenshot-input"
+              className="hidden"
+            />
+            
+            <label
+              htmlFor="screenshot-input"
+              className="cursor-pointer bg-[#0b0f17] border border-dashed border-gray-700 hover:border-amber-500 p-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-colors"
+            >
+              {previewUrl ? (
+                <div className="flex flex-col items-center gap-2 w-full">
+                  <img src={previewUrl} alt="Payment Screenshot Preview" className="max-h-40 rounded-lg object-contain border border-gray-800" />
+                  <span className="text-xs text-amber-400 font-bold">Change Screenshot</span>
+                </div>
+              ) : (
+                <>
+                  <span className="text-2xl">📸</span>
+                  <span className="text-xs text-gray-400 font-medium">Click karke Screenshot upload karein</span>
+                </>
+              )}
+            </label>
+          </div>
+
           {/* Submit Button */}
           <button
             type="submit"
             disabled={loading}
             className="w-full bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 font-black text-black py-3.5 rounded-xl uppercase text-xs shadow-lg active:scale-95 transition-all mt-1 disabled:opacity-50"
           >
-            {loading ? "Sending..." : `Submit Deposit Request (PKR ${amount || 0})`}
+            {loading ? "Sending & Uploading..." : `Submit Deposit Request (PKR ${amount || 0})`}
           </button>
         </form>
       )}
