@@ -33,14 +33,16 @@ export default function DepositPage() {
     }
   };
 
+  // Fixed & Defined JazzCash Accounts
   const jazzcashAccounts = [
-    { name: "Muhammad Abdullah", number: "03019292354", type: "JazzCash" },
-    { name: "Adeba Arif", number: "03039252392", type: "JazzCash" },
+    { name: "IBAD KHAN", number: "03475044076", type: "JazzCash" },
+    { name: "MUHAMMAD JUMMA", number: "03357787937", type: "JazzCash" },
   ];
 
+  // Defined EasyPaisa Accounts
   const easypaisaAccounts = [
-    { name: "Muhammad Abdullah", number: "03019292354", type: "EasyPaisa" },
-    { name: "Adeba Arif", number: "03039252392", type: "EasyPaisa" },
+    { name: "IBAD KHAN", number: "03475044076", type: "EasyPaisa" },
+    { name: "MUHAMMAD JUMMA", number: "03357787937", type: "EasyPaisa" },
   ];
 
   const handleCopy = (num: string, idxKey: string) => {
